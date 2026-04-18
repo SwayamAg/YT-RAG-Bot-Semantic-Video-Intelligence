@@ -60,8 +60,8 @@ In an era of information overload, finding specific details in long videos is ti
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/SwayamAg/YT-RAG_BOT.git
-cd YT-RAG_BOT
+git clone https://github.com/SwayamAg/YT-RAG-Bot-Semantic-Video-Intelligence.git
+cd YT-RAG-Bot-Semantic-Video-Intelligence
 ```
 
 ### 2. Configure Environment Variables
