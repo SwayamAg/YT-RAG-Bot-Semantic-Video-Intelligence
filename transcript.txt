@@ -1,0 +1,6 @@
+This is a dummy transcript used for verification of the YT-RAG bot. 
+The video discusses artificial intelligence, deepmind, and the future of science. 
+Demis Hassabis mentions that AI is a tool for scientific discovery.
+Nuclear fusion is another topic discussed in the context of AI-driven research.
+The team collaborated with EPFL for test reactor experiments.
+The main takeaway is that AI can accelerate scientific breakthroughs.

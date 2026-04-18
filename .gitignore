@@ -1,0 +1,21 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Vector Store
+faiss_index/
+
+# Logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
