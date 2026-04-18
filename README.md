@@ -1,21 +1,48 @@
 # 📺 YT-RAG Bot: Semantic Video Intelligence
 > **Transform any YouTube video into an interactive, high-fidelity knowledge base using RAG.**
 
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![LangChain](https://img.shields.io/badge/langchain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
+![Azure](https://img.shields.io/badge/azure_openai-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
+![FAISS](https://img.shields.io/badge/FAISS-005571?style=for-the-badge&logo=meta&logoColor=white)
+
 ---
 
 ## 📝 Overview
-**YT-RAG Bot** is a production-ready **Retrieval-Augmented Generation (RAG)** system designed to perform deep semantic analysis on YouTube transcripts. It bridges the gap between passive video consumption and active knowledge extraction by allowing users to query video content with sub-second precision.
+**YT-RAG Bot** is a production-ready system designed to perform deep analysis on YouTube transcripts. It bridges the gap between passive video watching and active learning by allowing users to query video content with instant, precise answers.
 
-Built with **LangChain (LCEL)** and **Azure OpenAI**, this project implements a full ETL pipeline: from dynamic URL extraction and recursive character splitting to persistent vector indexing and context-grounded response generation.
+Built with **LangChain** and **Azure OpenAI**, this project automates the entire process: from extracting a video's transcript to creating a searchable local database that grounds an AI's answers in actual video facts.
+
+### 🎯 Why This Matters
+In an era of information overload, finding specific details in long videos is time-consuming. This project is a powerful tool for:
+- **Students & Researchers**: Instantly find specific academic concepts or data points within hours of lectures or interviews.
+- **Content Consumers**: Quickly verify facts or summarize key takeaways from documentaries and podcasts.
+- **Developers**: A blueprint for building robust, modular RAG applications with multi-resource cloud integration.
+
+---
+
+## 💬 Example Usage
+
+**Target Video**: *DeepMind's Demis Hassabis on the Future of AI*
+
+**User Query**:
+> *"What is the main objective of the nuclear fusion research mentioned?"*
+
+**Assistant Response**:
+> *"The objective is to accelerate scientific discovery in fusion research. The team collaborated with EPFL (Swiss Federal Institute of Technology) to use AI for controlling plasma in fusion reactors, potentially bringing us closer to a clean energy future."*
+
+---
 
 ## 🚀 Key Features
-- ⚡ **Dynamic ID Extraction**: Robust Regex-based parsing for standard, short, and mobile YouTube URLs.
-- 🔍 **Semantic Search**: Powered by **FAISS** (Facebook AI Similarity Search) for high-dimensional vector retrieval.
-- 🛡️ **Anti-Hallucination Guardrails**: Specialized system prompts restrict the LLM to provide answers strictly from the transcript.
-- 🌐 **Dual-Resource Architecture**: Native support for separate Azure OpenAI resources (multi-region/multi-endpoint) for LLM and Embeddings.
-- 💾 **Local Disk Persistence**: High-performance serialization of vector indexes to eliminate redundant API costs.
-- 🔄 **Local Fallback Mode**: Built-in support for `transcript.txt` to bypass YouTube scraper blocking.
-- 🛠️ **DevOps Diagnostic Suite**: Custom scripts for connectivity testing and automated deployment discovery.
+- ⚡ **Smart URL Handling**: Automatically recognizes standard, short, and mobile YouTube links.
+- 🔍 **Intelligent Search**: Uses **FAISS** to find relevant information even if the exact keywords don't match.
+- 🛡️ **Fact-Grounded Answers**: Specialized AI prompts prevent "hallucinations" by restricting the model to the video's transcript.
+- 🌐 **Flexible Cloud Setup**: Native support for using separate Azure OpenAI resources for chat and embeddings.
+- 💾 **Fast Local Storage**: Saves video data locally to disk, ensuring sub-second response times and reduced API costs.
+- 🔄 **Local Fallback**: Supports manual transcript uploads if automated scraping is blocked.
+- 🛠️ **Diagnostic Suite**: Built-in tools to verify cloud connections and discover Azure deployments automatically.
+
+---
 
 ## 🛠 Tech Stack
 | Category | Tools & Frameworks |
@@ -23,9 +50,11 @@ Built with **LangChain (LCEL)** and **Azure OpenAI**, this project implements a 
 | **Orchestration** | [LangChain](https://www.langchain.com/) (LCEL) |
 | **Generative AI** | [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) (GPT-4o) |
 | **Embeddings** | Azure OpenAI `text-embedding-3-small` |
-| **Vector Engine** | [FAISS](https://github.com/facebookresearch/faiss) (L2 Similarity) |
+| **Search Engine** | [FAISS](https://github.com/facebookresearch/faiss) (L2 Similarity) |
 | **Data Ingestion** | `youtube-transcript-api`, `YoutubeLoader` |
 | **Utilities** | `python-dotenv`, `RecursiveCharacterTextSplitter` |
+
+---
 
 ## ⚙️ Installation
 
@@ -36,9 +65,9 @@ cd YT-RAG_BOT
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env` file in the root directory. This project supports **separate resources** for LLM and Embeddings:
+Create a `.env` file in the root directory. This project supports **separate resources** for the Chat model and Embeddings:
 ```env
-# LLM Config
+# Chat Model Config
 AZURE_OPENAI_API_KEY=your_primary_key
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_DEPLOYMENT=your-gpt-deployment
@@ -68,8 +97,8 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-1. **Input**: Paste a YouTube URL or press **Enter** for the default video.
-2. **Interact**: Ask questions like *"What are the technical limitations discussed in the video?"*
+1. **Target Selection**: Paste a YouTube URL or press **Enter** for the default video.
+2. **Interact**: Ask questions about the video content.
 3. **Commands**: `clear` to reset the UI, `exit` to quit.
 
 ### Diagnostic Tools
@@ -83,14 +112,14 @@ python debug_azure.py
 ## 📁 Project Structure
 ```text
 YT-RAG_BOT/
-├── main.py            # CLI UI & Application Orchestration
-├── ingestion.py       # ETL Pipeline (Extract -> Transform -> Load)
-├── rag_chain.py       # LCEL Logic & Augmented Prompting
-├── utils.py           # YouTube URL & Title Metadata Fetcher
-├── config.py          # Dual-Resource Client Factories
+├── main.py            # CLI Interface & Orchestration
+├── ingestion.py       # Data Pipeline (Load -> Split -> Index)
+├── rag_chain.py       # RAG Logic & Prompt Engineering
+├── utils.py           # Video Metadata & URL Utilities
+├── config.py          # Configuration & Azure Factories
 ├── debug_azure.py     # Connection Diagnostic Script
 ├── find_deployments.py # Automated Deployment Discovery
-├── summary.md         # Technical Deep-Dive & Methodology
+├── summary.md         # Technical Deep-Dive Documentation
 └── requirements.txt   # Dependency Management
 ```
 
@@ -127,15 +156,9 @@ graph LR
 ```
 
 ## 👨‍💻 Model & Pipeline Details
-- **Chunking Strategy**: `RecursiveCharacterTextSplitter` optimizing for paragraph and sentence boundaries.
-- **Retriever**: Similarity Search with **k=4** (Top 4 relevant segments).
-- **Prompting**: System-level constraints enforcing zero hallucination policy.
-- **LLM**: GPT-4o configured with `temperature=0.2` for factual consistency.
-
-## 🚀 Future Roadmap
-- [ ] **Multi-Video RAG**: Cross-video analysis for entire playlists.
-- [ ] **Streamlit UI**: Browser-based interactive dashboard.
-- [ ] **Audio-to-Text**: whisper-large-v3 integration for non-captioned videos.
+- **Text Processing**: Uses a recursive strategy to split transcripts into 1000-character segments with a 200-character overlap for context preservation.
+- **Retrieval**: Similarity-based retrieval returning the top 4 most relevant transcript sections.
+- **LLM Configuration**: Powered by GPT-4o with a low temperature (0.2) to ensure factual, non-creative answers.
 
 ---
 
