@@ -14,10 +14,10 @@ def get_rag_chain(video_id: str):
     # 1. Pipeline Initialization
     try:
         llm = get_llm()
-        vector_store = get_or_create_vector_store(video_id)
+        vector_store, is_fallback = get_or_create_vector_store(video_id)
         
         if not vector_store:
-            return None
+            return None, False
             
         retriever = vector_store.as_retriever(
             search_type=SEARCH_TYPE, 
@@ -25,17 +25,25 @@ def get_rag_chain(video_id: str):
         )
     except Exception as e:
         print(f"[SYSTEM ERROR] Pipeline failed to start: {e}")
-        return None
+        return None, False
     
     # 2. Prompt Engineering
     template = """
-      You are a specialized AI Research Assistant. Your goal is to answer questions 
-      based strictly on the provided YouTube video transcript context.
+      You are a Senior Technical Analyst and Research Assistant. Your goal is to provide 
+      high-fidelity, structured summaries and answers based on the provided YouTube transcript.
 
-      ### RULES:
-      1. Use ONLY the provided context to answer.
-      2. If the answer is not in the context, say: "I'm sorry, that information is not available in the transcript."
-      3. Be professional, technical, and concise.
+      ### INSTRUCTIONS:
+      1. Use ONLY the provided context. Do not use outside knowledge.
+      2. CLEAN FORMATTING: Do NOT use Markdown symbols like #, *, or **.
+      3. HEADERS: Use ALL CAPS for section headers (e.g., OVERVIEW, CORE WORKFLOW).
+      4. LISTS: Use simple dashes (-) for bullet points.
+      5. STRUCTURE: Organize your response into these sections:
+         OVERVIEW: A brief summary.
+         CORE WORKFLOW / KEY CONCEPTS: Breakdown of processes.
+         TECHNICAL HIGHLIGHTS: Specific tools or methods.
+         INSIGHTS / TAKEAWAYS: The key value.
+         TIMESTAMPS: List specific [MM:SS] markers.
+      6. If the answer is not in the context, state that clearly.
 
       ### CONTEXT:
       {context}
@@ -43,7 +51,7 @@ def get_rag_chain(video_id: str):
       ### USER QUESTION: 
       {question}
 
-      ### FINAL ANSWER:
+      ### STRUCTURED RESPONSE (PLAIN TEXT ONLY):
     """
     prompt = PromptTemplate(
         template=template,
@@ -61,7 +69,7 @@ def get_rag_chain(video_id: str):
         | StrOutputParser()
     )
     
-    return rag_pipeline
+    return rag_pipeline, is_fallback
 
 if __name__ == "__main__":
     from config import YOUTUBE_VIDEO_ID

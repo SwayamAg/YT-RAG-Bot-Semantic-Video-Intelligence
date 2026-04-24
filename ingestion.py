@@ -11,19 +11,89 @@ from config import (
     get_embeddings
 )
 
-def fetch_transcript_from_youtube(video_id: str) -> Optional[str]:
-    """Attempts to fetch transcript from YouTube using LangChain's YoutubeLoader."""
+def fetch_transcript_with_ytdlp(video_id: str) -> Optional[str]:
+    """Uses yt-dlp to extract transcripts. Highly robust against blocks."""
+    import yt_dlp
+    import requests
+    import json
+    
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    print(f"[FETCH] Attempting pro-fetch with yt-dlp for: {video_id}")
+    
+    ydl_opts = {
+        'skip_download': True,
+        'writeautomaticsub': True,
+        'writesubtitles': True,
+        'subtitleslangs': ['en.*', 'hi.*'], # Support English and Hindi
+        'quiet': True,
+        'no_warnings': True,
+    }
+    
     try:
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        print(f"[FETCH] Attempting to download transcript from: {url}")
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=False)
-        docs = loader.load()
-        if docs:
-            print("[SUCCESS] Transcript successfully downloaded from YouTube.")
-            return docs[0].page_content
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            # Prioritize manual subtitles over automatic ones
+            subtitles = info.get('subtitles') or info.get('automatic_captions')
+            if not subtitles:
+                return None
+                
+            # Pick the first available English/Hindi subtitle
+            for lang in ['en', 'en-US', 'hi']:
+                for key in subtitles.keys():
+                    if key.startswith(lang):
+                        # Get the JSON format URL if available, else VTT
+                        formats = subtitles[key]
+                        json_fmt = next((f['url'] for f in formats if f.get('ext') == 'json3'), None)
+                        if json_fmt:
+                            resp = requests.get(json_fmt)
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                formatted_events = []
+                                for event in data.get('events', []):
+                                    if 'segs' in event and 'tStartMs' in event:
+                                        # Convert ms to M:SS or H:MM:SS
+                                        ms = event['tStartMs']
+                                        s = ms // 1000
+                                        m, s = divmod(s, 60)
+                                        h, m = divmod(m, 60)
+                                        time_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+                                        
+                                        text = "".join([seg['utf8'] for seg in event['segs'] if 'utf8' in seg])
+                                        formatted_events.append(f"[{time_str}] {text}")
+                                
+                                return " ".join(formatted_events)
         return None
     except Exception as e:
-        print(f"[WARNING] YouTube download failed: {e}")
+        print(f"[WARNING] yt-dlp extraction failed: {e}")
+        return None
+
+def fetch_transcript_from_youtube(video_id: str) -> Optional[str]:
+    """
+    Advanced fetcher that prioritizes yt-dlp for robustness.
+    """
+    # 1. Try yt-dlp (Pro)
+    transcript = fetch_transcript_with_ytdlp(video_id)
+    if transcript:
+        print("[SUCCESS] Transcript fetched via yt-dlp.")
+        return transcript
+
+    # 2. Fallback to youtube-transcript-api (Fast)
+    from youtube_transcript_api import YouTubeTranscriptApi
+    try:
+        print(f"[FETCH] Falling back to standard scraper for: {video_id}")
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        try:
+            transcript_obj = transcript_list.find_transcript(['en', 'hi'])
+        except:
+            transcript_obj = next(iter(transcript_list))
+            
+        data = transcript_obj.fetch()
+        return " ".join([t['text'] for t in data])
+        
+    except Exception as e:
+        print(f"\033[91m[NOTICE]\033[0m Live transcript not fetchable for this video.")
+        print(f"         Reason: {str(e)[:100]}...")
         return None
 
 def fetch_transcript_from_local() -> Optional[str]:
@@ -41,53 +111,51 @@ def fetch_transcript_from_local() -> Optional[str]:
 def get_or_create_vector_store(video_id: str):
     """Manages the Vector Store lifecycle for a specific video_id."""
     embeddings = get_embeddings()
+    is_fallback = False
     
-    # Use a unique index path per video if possible, or just the default
-    # For simplicity, we'll keep one index, but we could make it video-specific:
-    # index_path = f"faiss_index_{video_id}"
-    index_path = FAISS_INDEX_PATH
+    # Use unique index path per video to avoid loading old data from other videos
+    index_path = os.path.join(FAISS_INDEX_PATH, video_id)
+    fallback_index_path = os.path.join(FAISS_INDEX_PATH, "local_fallback")
     
-    # Check if a persistent index exists on disk
+    # 1. Check if a persistent index for THIS video exists on disk
     if os.path.exists(index_path):
-        print(f"[INDEX] Loading existing FAISS index from '{index_path}'...")
+        print(f"[INDEX] Loading existing FAISS index for Video ID: {video_id}...")
         try:
-            return FAISS.load_local(
-                index_path, 
-                embeddings, 
-                allow_dangerous_deserialization=True
-            )
+            return FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True), False
         except Exception as e:
-            print(f"[RECOVERY] Local index corrupted or incompatible: {e}. Re-indexing...")
+            print(f"[RECOVERY] Local index corrupted: {e}. Re-indexing...")
 
-    # Data Ingestion Pipeline
+    # 2. Try to fetch and index NEW transcript
     print(f"[INDEX] Initializing ingestion pipeline for Video ID: {video_id}...")
     transcript = fetch_transcript_from_youtube(video_id)
     
+    # 3. Handle Fallback if fetch fails
     if not transcript:
+        print(f"\033[93m[FALLBACK]\033[0m Transcript fetch failed. Shifting to default local transcript...")
+        is_fallback = True
+        # Check if we already have a saved index for the fallback file
+        if os.path.exists(fallback_index_path):
+             return FAISS.load_local(fallback_index_path, embeddings, allow_dangerous_deserialization=True), True
         transcript = fetch_transcript_from_local()
+        save_path = fallback_index_path
+    else:
+        save_path = index_path
         
     if not transcript:
-        print(f"[CRITICAL] No data found! Provide a '{LOCAL_TRANSCRIPT_PATH}' file to proceed.")
-        return None
+        print(f"\n\033[91m[CRITICAL]\033[0m No data found! Provide a '{LOCAL_TRANSCRIPT_PATH}' file to proceed.")
+        return None, False
         
-    # Semantic Chunking
-    print(f"[PROCESS] Splitting text into chunks (Size={CHUNK_SIZE}, Overlap={CHUNK_OVERLAP})...")
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE, 
-        chunk_overlap=CHUNK_OVERLAP
-    )
+    # Semantic Chunking & Vectorization
+    print(f"[PROCESS] Splitting text into chunks...")
+    splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
     chunks = splitter.create_documents([transcript])
-    print(f"[PROCESS] Generated {len(chunks)} document segments.")
-    
-    # Vectorization
-    print("[INDEX] Generating embeddings and building FAISS index...")
     vector_store = FAISS.from_documents(chunks, embeddings)
     
     # Persistence
-    vector_store.save_local(index_path)
-    print(f"[INDEX] FAISS index persisted locally at '{index_path}'.")
+    vector_store.save_local(save_path)
+    print(f"[INDEX] Index persisted at '{save_path}'.")
     
-    return vector_store
+    return vector_store, is_fallback
 
 if __name__ == "__main__":
     from config import YOUTUBE_VIDEO_ID

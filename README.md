@@ -34,13 +34,13 @@ In an era of information overload, finding specific details in long videos is ti
 ---
 
 ## 🚀 Key Features
-- ⚡ **Smart URL Handling**: Automatically recognizes standard, short, and mobile YouTube links.
-- 🔍 **Intelligent Search**: Uses **FAISS** to find relevant information even if the exact keywords don't match.
-- 🛡️ **Fact-Grounded Answers**: Specialized AI prompts prevent "hallucinations" by restricting the model to the video's transcript.
+- 🛡️ **Triple-Redundancy Ingestion**: Combines **yt-dlp**, `youtube-transcript-api`, and local fallbacks to ensure almost 100% transcript fetch success.
+- ⏱️ **Temporal Citations**: Injects `[MM:SS]` timestamps into the knowledge base, allowing the AI to cite specific parts of the video.
+- 🔍 **Intelligent Search**: Uses **FAISS** with video-specific indices to find relevant information without data overlap.
+- 🤖 **High-Fidelity Responses**: Specialized prompt engineering provides categorized, plain-text technical summaries.
 - 🌐 **Flexible Cloud Setup**: Native support for using separate Azure OpenAI resources for chat and embeddings.
-- 💾 **Fast Local Storage**: Saves video data locally to disk, ensuring sub-second response times and reduced API costs.
-- 🔄 **Local Fallback**: Supports manual transcript uploads if automated scraping is blocked.
-- 🛠️ **Diagnostic Suite**: Built-in tools to verify cloud connections and discover Azure deployments automatically.
+- 💾 **Isolated Local Storage**: Saves video data in unique sub-directories for sub-second response times and reduced API costs.
+- 🛠️ **Diagnostic Suite**: Built-in tools (`debug_azure.py` and `debug_youtube.py`) to verify cloud connections and ingestion health.
 
 ---
 
@@ -51,7 +51,7 @@ In an era of information overload, finding specific details in long videos is ti
 | **Generative AI** | [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) (GPT-4o) |
 | **Embeddings** | Azure OpenAI `text-embedding-3-small` |
 | **Search Engine** | [FAISS](https://github.com/facebookresearch/faiss) (L2 Similarity) |
-| **Data Ingestion** | `youtube-transcript-api`, `YoutubeLoader` |
+| **Data Ingestion** | `yt-dlp`, `youtube-transcript-api` |
 | **Utilities** | `python-dotenv`, `RecursiveCharacterTextSplitter` |
 
 ---
@@ -97,11 +97,15 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-1. **Target Selection**: Paste a YouTube URL or press **Enter** for the default video.
-2. **Interact**: Ask questions about the video content.
+1. **Target Selection**: Paste a YouTube URL or ID.
+2. **Interact**: Ask questions. The AI will provide structured, time-stamped answers.
 3. **Commands**: `clear` to reset the UI, `exit` to quit.
 
 ### Diagnostic Tools
+Verify your YouTube ingestion health:
+```bash
+python debug_youtube.py
+```
 Verify your Azure configuration:
 ```bash
 python debug_azure.py
@@ -113,12 +117,12 @@ python debug_azure.py
 ```text
 YT-RAG_BOT/
 ├── main.py            # CLI Interface & Orchestration
-├── ingestion.py       # Data Pipeline (Load -> Split -> Index)
+├── ingestion.py       # Triple-Redundancy Pipeline (yt-dlp -> scraper -> local)
 ├── rag_chain.py       # RAG Logic & Prompt Engineering
-├── utils.py           # Video Metadata & URL Utilities
+├── utils.py           # oEmbed Metadata & URL Utilities
 ├── config.py          # Configuration & Azure Factories
+├── debug_youtube.py   # Ingestion Diagnostic Script
 ├── debug_azure.py     # Connection Diagnostic Script
-├── find_deployments.py # Automated Deployment Discovery
 ├── summary.md         # Technical Deep-Dive Documentation
 └── requirements.txt   # Dependency Management
 ```
@@ -130,16 +134,16 @@ graph LR
     B["📄 transcript.txt"] --> D
 
     subgraph INGEST["⚙️ Ingestion"]
-        C["YoutubeLoader"] --> D["RecursiveTextSplitter\nchunk=1000  overlap=200"]
+        C["yt-dlp / Scraper"] --> D["Timestamped Splitting\nchunk=1000  overlap=200"]
     end
 
     subgraph VECTOR["🗄️ Vector Store"]
-        D --> E["Azure OpenAI Embeddings"] --> F[("FAISS Index · Local Disk")]
+        D --> E["Azure OpenAI Embeddings"] --> F[("FAISS Index\n(Video-Specific)")]
     end
 
     subgraph RAG["🔗 RAG Pipeline"]
         G["🔍 User Query"] --> H["Similarity Search"]
-        F --> H --> I["Augmented Prompt"] --> J["🤖 Azure GPT-4o"] --> K["✅ Grounded Answer"]
+        F --> H --> I["Structured Prompt"] --> J["🤖 Azure GPT-4o"] --> K["✅ High-Fidelity Answer"]
     end
 
     classDef input   fill:#3b1f4a,stroke:#c678dd,color:#f0e6ff

@@ -22,14 +22,15 @@ def extract_video_id(url: str) -> Optional[str]:
 
 def get_video_title(video_id: str) -> str:
     """
-    Fetches the title of a YouTube video using its ID.
+    Fetches the title of a YouTube video using the official oEmbed endpoint.
+    This is more reliable than scraping as it doesn't get blocked easily.
     """
+    import requests
     try:
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)
-        docs = loader.load()
-        if docs and "title" in docs[0].metadata:
-            return docs[0].metadata["title"]
+        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json().get("title", "Unknown Video")
         return "Unknown Video"
     except Exception:
         return "Unknown Video"

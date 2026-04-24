@@ -44,17 +44,20 @@ def main():
     print("Commands: 'exit' to quit, 'clear' to reset terminal\n")
     
     try:
-        print("[*] Initializing RAG Logic and Vector Index...")
-        rag_chain = get_rag_chain(vid_id)
+        print(f"[*] Analyzing video content...")
+        rag_chain, is_fallback = get_rag_chain(vid_id)
         
         if not rag_chain:
-            print("\n\033[91m[FAILED]\033[0m Initialization aborted.")
-            print(f"Suggestion: Check .env or add transcript to '{LOCAL_TRANSCRIPT_PATH}'.")
+            print(f"\n\033[91m[CRITICAL]\033[0m Could not build knowledge base.")
             sys.exit(1)
             
-        print("\033[92m[READY]\033[0m Ask me anything about the video content!\n")
+        if is_fallback:
+            vid_title = "DEFAULT LOCAL TRANSCRIPT (Fallback)"
+            print(f"\033[93m[NOTICE]\033[0m Using default local knowledge base as the requested transcript was unavailable.")
+            
+        print(f"\n\033[92m[SYSTEM READY]\033[0m Chat initialized for: {vid_title}")
     except Exception as e:
-        print(f"\n[CRITICAL ERROR] {e}")
+        print(f"\n\033[91m[SYSTEM ERROR]\033[0m {e}")
         sys.exit(1)
     
     while True:
